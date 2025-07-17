@@ -10,10 +10,7 @@ on:
       - '**/*.md'
       - '**/*.txt'
       - 'LICENSE'
-      - '**/*.ico'
-      - '**/*.png'
-      - '**/*.jpg'
-      - '**/*.svg'
+
 
 jobs:
   build:
