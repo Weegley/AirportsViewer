@@ -1,4 +1,4 @@
-name: Build & Release AirportsDB
+name: Build & Release AirportsViewer
 
 permissions:
   contents: write
@@ -60,16 +60,16 @@ jobs:
       - name: 🧳 Archive build output
         run: |
           $target = Get-ChildItem -Path .\AirportsViewer\bin\Release\ -Directory | Where-Object { $_.Name -like 'net*' } | Select-Object -First 1
-          mkdir output\AirportsDB
+          mkdir output\AirportsViewer
           echo $target
-          Copy-Item -Path "$($target.FullName)\*" -Destination output\AirportsDB -Recurse -Force
-          Compress-Archive -Path output\AirportsDB -DestinationPath AirportsDB-Windows.zip
+          Copy-Item -Path "$($target.FullName)\*" -Destination output\AAirportsViewer -Recurse -Force
+          Compress-Archive -Path output\AirportsViewer -DestinationPath AirportsViewer-Windows.zip
 
       - name: ⬆️ Upload artifact to Actions
         uses: actions/upload-artifact@v4
         with:
-          name: AirportsDB-Windows
-          path: AirportsDB-Windows.zip
+          name: AirportsViewer-Windows
+          path: AirportsViewer-Windows.zip
 
   release:
     needs: build
@@ -82,7 +82,7 @@ jobs:
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
-          name: AirportsDB-Windows
+          name: AirportsViewer-Windows
 
       - name: Get version from build job
         run: echo "Version is ${{ needs.build.outputs.version }}"
@@ -114,8 +114,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.build.outputs.version }}
-          name: AirportsDB v${{ needs.build.outputs.version }}
+          name: AirportsViewer v${{ needs.build.outputs.version }}
           body: ${{ steps.changelog.outputs.body }}
-          files: AirportsDB-Windows.zip
+          files: AirportsViewer-Windows.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
