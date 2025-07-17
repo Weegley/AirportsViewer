@@ -46,6 +46,7 @@ jobs:
           }
           if (-not $version) { $version = "0.1.0" }
           echo "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          echo "🔖 Проектная версия: $version"
 
 
       - name: 🛠 Set up MSBuild
