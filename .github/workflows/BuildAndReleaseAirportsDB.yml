@@ -1,0 +1,120 @@
+name: Build & Release AirportsDB
+
+permissions:
+  contents: write
+on: 
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.txt'
+      - 'LICENSE'
+      - '**/*.ico'
+      - '**/*.png'
+      - '**/*.jpg'
+      - '**/*.svg'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+
+    steps:
+      - name: 🧾 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🔍 Extract version from AssemblyInfo.cs
+        id: get_version
+        shell: pwsh
+        run: |
+          $version = $null
+          $csproj = Get-ChildItem -Path . -Filter *.csproj -Recurse | Select-Object -First 1
+          if ($csproj) {
+            [xml]$xml = Get-Content $csproj.FullName
+            $version = $xml.Project.PropertyGroup.AssemblyVersion
+          }
+          if (-not $version) {
+            $assinfo = Get-ChildItem -Path . -Filter AssemblyInfo.cs -Recurse | Select-Object -First 1
+            if ($assinfo) {
+              $content = Get-Content $assinfo.FullName | Select-String 'AssemblyVersion\("([0-9\.]+)"\)'
+              if ($content.Matches.Count -gt 0) {
+                $version = $content.Matches[0].Groups[1].Value
+              }
+            }
+          }
+          if (-not $version) { $version = "0.1.0" }
+          echo "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+
+      - name: 🛠 Set up MSBuild
+        uses: microsoft/setup-msbuild@v1.3.1
+
+      - name: 📦 Restore NuGet packages
+        run: nuget restore AirportsViewer.sln
+
+      - name: ⚙️ Build solution
+        run: msbuild AirportsViewer.sln /p:Configuration=Release
+
+      - name: 🧳 Archive build output
+        run: |
+          $target = Get-ChildItem -Path .\bin\Release\ -Directory | Where-Object { $_.Name -like 'net*' } | Select-Object -First 1
+          mkdir output\AirportsDB
+          Copy-Item -Path "$($target.FullName)\*" -Destination output\AirportsDB -Recurse -Force
+          Compress-Archive -Path output\AirportsDB -DestinationPath AirportsDB-Windows.zip
+
+      - name: ⬆️ Upload artifact to Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: AirportsDB-Windows
+          path: AirportsDB-Windows.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: AirportsDB-Windows
+
+      - name: Get version from build job
+        run: echo "Version is ${{ needs.build.outputs.version }}"
+
+      - name: Create tag if not exists (robust)
+        run: |
+          TAG="v${{ needs.build.outputs.version }}"
+          if git ls-remote --tags origin | grep "refs/tags/$TAG$"; then
+            echo "Tag already exists: $TAG"
+          else
+            git config user.name "github-actions"
+            git config user.email "github-actions@github.com"
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+
+      - name: Read changelog for this version
+        id: changelog
+        run: |
+          VERSION="v${{ needs.build.outputs.version }}"
+          # Ищем секцию для текущей версии, до следующей секции или конца файла
+          # Меняем при необходимости на свой стиль!
+          TEXT=$(awk "/^## \\[?$VERSION\\]?/ {flag=1;next} /^## /{flag=0} flag" CHANGELOG.md | sed '/^[[:space:]]*$/d')
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$TEXT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.build.outputs.version }}
+          name: NanoBin v${{ needs.build.outputs.version }}
+          body: ${{ steps.changelog.outputs.body }}
+          files: AirportsDB-Windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
