@@ -15,8 +15,8 @@
     <Authors>Sergey Samsonov</Authors>
     <Description>AirportsViewer is a Windows application for viewing, searching, and filtering airport data from a CSV file.</Description>
     <Copyright>©2025 Sergey Samsonov</Copyright>
-    <PackageProjectUrl>https://github.com/Weegley/airportsDB</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/Weegley/airportsDB</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/Weegley/AirportsViewer</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Weegley/AirportsViewer</RepositoryUrl>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DebugType>none</DebugType>
