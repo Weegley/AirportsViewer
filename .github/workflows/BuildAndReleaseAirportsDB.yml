@@ -45,7 +45,8 @@ jobs:
             }
           }
           if (-not $version) { $version = "0.1.0" }
-          $version = $version.Trim()
+          $version=$version | Out-String
+          $version=$version.Trim()
           echo "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           echo "🔖 Проектная версия: $version"
 
