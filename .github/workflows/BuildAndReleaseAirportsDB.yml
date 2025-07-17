@@ -117,7 +117,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.build.outputs.version }}
-          name: NanoBin v${{ needs.build.outputs.version }}
+          name: AirportsDB v${{ needs.build.outputs.version }}
           body: ${{ steps.changelog.outputs.body }}
           files: AirportsDB-Windows.zip
         env:
