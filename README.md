@@ -4,7 +4,8 @@
 **AirportsViewer** is a Windows application for viewing, searching, and filtering airport data from a CSV file.  
 It is designed for fast lookup and convenient filtering of airports by code, name, country, and other parameters, with an option to update the airports database from an online source.
 
-![AirportsViewer screenshot](https://github.com/user-attachments/assets/33919a37-92cf-4594-a791-3ca360ac3a51)
+![AirportsViewer screenshot](https://github.com/user-attachments/assets/2ae99f3e-2d02-43a7-80fd-7a3e9ac8e51b)
+
 
 ## Features
 
