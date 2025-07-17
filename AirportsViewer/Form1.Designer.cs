@@ -20,6 +20,7 @@ namespace AirportsViewer
 
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             this.dataGridView1 = new System.Windows.Forms.DataGridView();
             this.textBoxCode = new System.Windows.Forms.TextBox();
             this.textBoxName = new System.Windows.Forms.TextBox();
@@ -49,14 +50,14 @@ namespace AirportsViewer
             // 
             this.textBoxCode.Location = new System.Drawing.Point(53, 11);
             this.textBoxCode.Name = "textBoxCode";
-            this.textBoxCode.Size = new System.Drawing.Size(80, 20);
+            this.textBoxCode.Size = new System.Drawing.Size(80, 26);
             this.textBoxCode.TabIndex = 2;
             // 
             // textBoxName
             // 
             this.textBoxName.Location = new System.Drawing.Point(183, 11);
             this.textBoxName.Name = "textBoxName";
-            this.textBoxName.Size = new System.Drawing.Size(250, 20);
+            this.textBoxName.Size = new System.Drawing.Size(250, 26);
             this.textBoxName.TabIndex = 4;
             // 
             // labelCode
@@ -64,7 +65,7 @@ namespace AirportsViewer
             this.labelCode.AutoSize = true;
             this.labelCode.Location = new System.Drawing.Point(12, 15);
             this.labelCode.Name = "labelCode";
-            this.labelCode.Size = new System.Drawing.Size(35, 13);
+            this.labelCode.Size = new System.Drawing.Size(51, 20);
             this.labelCode.TabIndex = 1;
             this.labelCode.Text = "Code:";
             // 
@@ -73,7 +74,7 @@ namespace AirportsViewer
             this.labelName.AutoSize = true;
             this.labelName.Location = new System.Drawing.Point(139, 15);
             this.labelName.Name = "labelName";
-            this.labelName.Size = new System.Drawing.Size(38, 13);
+            this.labelName.Size = new System.Drawing.Size(55, 20);
             this.labelName.TabIndex = 3;
             this.labelName.Text = "Name:";
             // 
@@ -91,7 +92,7 @@ namespace AirportsViewer
             // 
             this.textBoxCountry.Location = new System.Drawing.Point(518, 11);
             this.textBoxCountry.Name = "textBoxCountry";
-            this.textBoxCountry.Size = new System.Drawing.Size(100, 20);
+            this.textBoxCountry.Size = new System.Drawing.Size(100, 26);
             this.textBoxCountry.TabIndex = 6;
             // 
             // label1
@@ -99,7 +100,7 @@ namespace AirportsViewer
             this.label1.AutoSize = true;
             this.label1.Location = new System.Drawing.Point(439, 15);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(73, 13);
+            this.label1.Size = new System.Drawing.Size(107, 20);
             this.label1.TabIndex = 7;
             this.label1.Text = "Country code:";
             // 
@@ -115,6 +116,7 @@ namespace AirportsViewer
             this.Controls.Add(this.labelName);
             this.Controls.Add(this.textBoxName);
             this.Controls.Add(this.dataGridView1);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MaximizeBox = false;
             this.Name = "Form1";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
