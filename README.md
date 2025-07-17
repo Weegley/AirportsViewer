@@ -53,7 +53,7 @@ https://raw.githubusercontent.com/lxndrblz/Airports/refs/heads/main/airports.csv
 ## Build Instructions
 
 1. Open the solution in Visual Studio (recommended: 2019 or later).
-2. Build in Release mode for .NET Framework 4.5.
+2. Build in Release mode for .NET Framework 4.7.
 3. The compiled files will be located in the `bin/Release/net45` directory.
 
 ## License
