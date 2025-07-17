@@ -1,22 +1,21 @@
-name: Build and Release (net45, tag from project)
+name: Release from Project Version
 
 on:
+  workflow_dispatch:
   push:
     branches:
-      - main    # замени на свою ветку!
-  workflow_dispatch:
+      - main  # Замени на свою ветку при необходимости
 
 jobs:
-  build:
+  release:
     runs-on: windows-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # --- 1. Читаем версию из csproj или AssemblyInfo.cs ---
-      - name: Get version from csproj or AssemblyInfo.cs
-        id: get_version
+      - name: Extract version from csproj or AssemblyInfo.cs
+        id: version
         shell: pwsh
         run: |
           $version = $null
@@ -26,7 +25,6 @@ jobs:
             $version = $xml.Project.PropertyGroup.Version
           }
           if (-not $version) {
-            # Если нет <Version> в csproj, ищем AssemblyVersion
             $assinfo = Get-ChildItem -Path . -Filter AssemblyInfo.cs -Recurse | Select-Object -First 1
             if ($assinfo) {
               $content = Get-Content $assinfo.FullName | Select-String 'AssemblyVersion\("([0-9\.]+)"\)'
@@ -35,26 +33,28 @@ jobs:
               }
             }
           }
-          if (-not $version) {
-            $version = "0.1.0"
-          }
-          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          echo "Project version: $version"
+          if (-not $version) { $version = "0.1.0" }
+          echo "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          echo "🔖 Проектная версия: $version"
 
-      # --- 2. Проверяем есть ли тег, создаём если нет ---
-      - name: Create tag for release
+      - name: Set tag name
+        id: tag
+        run: echo "tag=v${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
+
+      - name: Create git tag if not exists
+        shell: pwsh
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          $tag = "v${{ steps.get_version.outputs.version }}"
+          $tag = "${{ steps.tag.outputs.tag }}"
           $exists = git tag --list $tag
           if (-not $exists) {
             git tag $tag
             git push origin $tag
+          } else {
+            Write-Host "Tag $tag already exists, skipping creation."
           }
-        shell: pwsh
 
-      # --- 3. Setup MSBuild, Build, Prepare zip как раньше ---
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
@@ -64,7 +64,7 @@ jobs:
       - name: Restore NuGet packages
         run: nuget restore
 
-      - name: Build solution (.sln)
+      - name: Build solution
         run: msbuild /p:Configuration=Release
 
       - name: Find output directory with framework subfolder
@@ -87,18 +87,18 @@ jobs:
         run: |
           $dest = "AirportsDB"
           if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
-          New-Item -ItemType Directory -Path $dest
+          New-Item -ItemType Directory -Path $dest | Out-Null
           Copy-Item "${{ steps.find_output.outputs.output_dir }}\*" $dest -Recurse -Force
           if (Test-Path airports.csv) { Copy-Item airports.csv $dest }
 
       - name: Zip AirportsDB folder
-        run: Compress-Archive -Path AirportsDB -DestinationPath AirportsViewer-win-net45.zip
+        run: Compress-Archive -Path AirportsDB -DestinationPath AirportsDB-${{ steps.version.outputs.version }}.zip
         shell: pwsh
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.get_version.outputs.version }}
-          files: AirportsViewer-win-net45.zip
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: AirportsDB-${{ steps.version.outputs.version }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
