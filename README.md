@@ -1,4 +1,4 @@
-[![Build & Release AirportsDB ](https://github.com/Weegley/airportsDB/actions/workflows/BuildAndReleaseAirportsDB.yml/badge.svg)](https://github.com/Weegley/airportsDB/actions/workflows/BuildAndReleaseAirportsDB.yml)
+[![Build & Release AirportsViewer ](https://github.com/Weegley/AirportsViewer/actions/workflows/BuildAndReleaseAirportsViewer.yml/badge.svg)](https://github.com/Weegley/AirportsViewer/actions/workflows/BuildAndReleaseAirportsViewer.yml)
 # AirportsViewer
 
 **AirportsViewer** is a Windows application for viewing, searching, and filtering airport data from a CSV file.  
