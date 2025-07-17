@@ -1,10 +1,22 @@
 name: Build and Release (.NET Framework 4.5)
 
-on:
+permissions:
+  contents: write
+on: 
+  workflow_dispatch:
   push:
     tags:
-      - 'v*'
-  workflow_dispatch:
+    - 'v*'
+    branches: [ main ]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.txt'
+      - 'LICENSE'
+      - '**/*.ico'
+      - '**/*.png'
+      - '**/*.jpg'
+      - '**/*.svg'
+
 
 jobs:
   build:
@@ -26,24 +38,32 @@ jobs:
       - name: Build solution (.sln)
         run: msbuild /p:Configuration=Release
 
-      - name: Find output directory (bin/Release)
+      - name: Find output directory with framework subfolder
         id: find_output
-        run: |
-          $proj = Get-ChildItem -Recurse -Filter *.csproj | Select-Object -First 1
-          $projDir = Split-Path $proj.FullName
-          $output = Join-Path $projDir 'bin\Release'
-          echo "output_dir=$output" >> $env:GITHUB_OUTPUT
         shell: pwsh
-
-      - name: Copy airports.csv if present
         run: |
-          $dest = "${{ steps.find_output.outputs.output_dir }}"
+          $csproj = Get-ChildItem -Recurse -Filter *.csproj | Select-Object -First 1
+          $projDir = Split-Path $csproj.FullName
+          $releaseDir = Join-Path $projDir 'bin\Release'
+          $frameworkDir = Get-ChildItem $releaseDir -Directory | Where-Object { $_.Name -like "net*" } | Select-Object -First 1
+          if ($frameworkDir) {
+            $outDir = $frameworkDir.FullName
+          } else {
+            $outDir = $releaseDir
+          }
+          echo "output_dir=$outDir" >> $env:GITHUB_OUTPUT
+
+      - name: Prepare AirportsDB folder
+        shell: pwsh
+        run: |
+          $dest = "AirportsDB"
+          if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+          New-Item -ItemType Directory -Path $dest
+          Copy-Item "${{ steps.find_output.outputs.output_dir }}\*" $dest -Recurse -Force
           if (Test-Path airports.csv) { Copy-Item airports.csv $dest }
-        shell: pwsh
 
-      - name: Zip application
-        run: |
-          Compress-Archive -Path "${{ steps.find_output.outputs.output_dir }}\*" -DestinationPath "AirportsViewer-win-net45.zip"
+      - name: Zip AirportsDB folder
+        run: Compress-Archive -Path AirportsDB -DestinationPath AirportsViewer-win-net45.zip
         shell: pwsh
 
       - name: Create GitHub Release
