@@ -22,7 +22,7 @@ jobs:
           $csproj = Get-ChildItem -Path . -Filter *.csproj -Recurse | Select-Object -First 1
           if ($csproj) {
             [xml]$xml = Get-Content $csproj.FullName
-            $version = $xml.Project.PropertyGroup.Version
+            $version = $xml.Project.PropertyGroup.AssemblyVersion
           }
           if (-not $version) {
             $assinfo = Get-ChildItem -Path . -Filter AssemblyInfo.cs -Recurse | Select-Object -First 1
