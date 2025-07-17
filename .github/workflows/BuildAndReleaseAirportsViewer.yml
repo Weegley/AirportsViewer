@@ -62,7 +62,7 @@ jobs:
           $target = Get-ChildItem -Path .\AirportsViewer\bin\Release\ -Directory | Where-Object { $_.Name -like 'net*' } | Select-Object -First 1
           mkdir output\AirportsViewer
           echo $target
-          Copy-Item -Path "$($target.FullName)\*" -Destination output\AAirportsViewer -Recurse -Force
+          Copy-Item -Path "$($target.FullName)\*" -Destination output\AirportsViewer -Recurse -Force
           Compress-Archive -Path output\AirportsViewer -DestinationPath AirportsViewer-Windows.zip
 
       - name: ⬆️ Upload artifact to Actions
