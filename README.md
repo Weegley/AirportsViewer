@@ -35,9 +35,10 @@ It is designed for fast lookup and convenient filtering of airports by code, nam
 ## File Format
 
 The CSV file should have columns:
-`code,icao,name,latitude,longitude,elevation,url,time_zone,city_code,country,city,state,county,type`
+```code,icao,name,latitude,longitude,elevation,url,time_zone,city_code,country,city,state,county,type```
+
 Sample:
-`AAA,NTGA,Anaa,-17.3506654,-145.51111994065877,36,,Pacific/Tahiti,AAA,PF,,,,AP`
+```AAA,NTGA,Anaa,-17.3506654,-145.51111994065877,36,,Pacific/Tahiti,AAA,PF,,,,AP```
 
 
 ## Online Database
