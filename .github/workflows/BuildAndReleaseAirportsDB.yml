@@ -60,7 +60,7 @@ jobs:
 
       - name: 🧳 Archive build output
         run: |
-          $target = Get-ChildItem -Path .\bin\Release\ -Directory | Where-Object { $_.Name -like 'net*' } | Select-Object -First 1
+          $target = Get-ChildItem -Path .\AirportsViewer\bin\Release\ -Directory | Where-Object { $_.Name -like 'net*' } | Select-Object -First 1
           mkdir output\AirportsDB
           echo $target
           Copy-Item -Path "$($target.FullName)\*" -Destination output\AirportsDB -Recurse -Force
