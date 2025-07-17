@@ -1,22 +1,10 @@
-name: Build and Release (.NET Framework 4.5)
+name: Build and Release (net45, tag from project)
 
-permissions:
-  contents: write
-on: 
-  workflow_dispatch:
+on:
   push:
-    tags:
-    - 'v*'
-    branches: [ main ]
-    paths-ignore:
-      - '**/*.md'
-      - '**/*.txt'
-      - 'LICENSE'
-      - '**/*.ico'
-      - '**/*.png'
-      - '**/*.jpg'
-      - '**/*.svg'
-
+    branches:
+      - main    # замени на свою ветку!
+  workflow_dispatch:
 
 jobs:
   build:
@@ -26,6 +14,47 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # --- 1. Читаем версию из csproj или AssemblyInfo.cs ---
+      - name: Get version from csproj or AssemblyInfo.cs
+        id: get_version
+        shell: pwsh
+        run: |
+          $version = $null
+          $csproj = Get-ChildItem -Path . -Filter *.csproj -Recurse | Select-Object -First 1
+          if ($csproj) {
+            [xml]$xml = Get-Content $csproj.FullName
+            $version = $xml.Project.PropertyGroup.Version
+          }
+          if (-not $version) {
+            # Если нет <Version> в csproj, ищем AssemblyVersion
+            $assinfo = Get-ChildItem -Path . -Filter AssemblyInfo.cs -Recurse | Select-Object -First 1
+            if ($assinfo) {
+              $content = Get-Content $assinfo.FullName | Select-String 'AssemblyVersion\("([0-9\.]+)"\)'
+              if ($content.Matches.Count -gt 0) {
+                $version = $content.Matches[0].Groups[1].Value
+              }
+            }
+          }
+          if (-not $version) {
+            $version = "0.1.0"
+          }
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          echo "Project version: $version"
+
+      # --- 2. Проверяем есть ли тег, создаём если нет ---
+      - name: Create tag for release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          $tag = "v${{ steps.get_version.outputs.version }}"
+          $exists = git tag --list $tag
+          if (-not $exists) {
+            git tag $tag
+            git push origin $tag
+          }
+        shell: pwsh
+
+      # --- 3. Setup MSBuild, Build, Prepare zip как раньше ---
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
@@ -69,6 +98,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.get_version.outputs.version }}
           files: AirportsViewer-win-net45.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
