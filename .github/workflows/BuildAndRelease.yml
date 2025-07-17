@@ -1,0 +1,54 @@
+name: Build and Release (.NET Framework 4.5)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Restore NuGet packages
+        run: nuget restore
+
+      - name: Build solution (.sln)
+        run: msbuild /p:Configuration=Release
+
+      - name: Find output directory (bin/Release)
+        id: find_output
+        run: |
+          $proj = Get-ChildItem -Recurse -Filter *.csproj | Select-Object -First 1
+          $projDir = Split-Path $proj.FullName
+          $output = Join-Path $projDir 'bin\Release'
+          echo "output_dir=$output" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Copy airports.csv if present
+        run: |
+          $dest = "${{ steps.find_output.outputs.output_dir }}"
+          if (Test-Path airports.csv) { Copy-Item airports.csv $dest }
+        shell: pwsh
+
+      - name: Zip application
+        run: |
+          Compress-Archive -Path "${{ steps.find_output.outputs.output_dir }}\*" -DestinationPath "AirportsViewer-win-net45.zip"
+        shell: pwsh
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: AirportsViewer-win-net45.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
