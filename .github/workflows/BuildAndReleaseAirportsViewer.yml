@@ -103,12 +103,16 @@ jobs:
         id: changelog
         run: |
           VERSION="v${{ needs.build.outputs.version }}"
-          # Ищем секцию для текущей версии, до следующей секции или конца файла
-          # Меняем при необходимости на свой стиль!
-          TEXT=$(awk "/^##( \\[)?$VERSION(\\])?/ {flag=1} /^## / && !/^##( \\[)?$VERSION(\\])?/ {flag=0} flag" CHANGELOG.md | sed '/^[[:space:]]*$/d')
+          SECTION=$(awk "/^##[[:space:]]*\\[?$VERSION\\]?/ {flag=1} /^##[[:space:]]+/ && !/^##[[:space:]]*\\[?$VERSION\\]?/ {flag=0} flag" CHANGELOG.md | sed '/^[[:space:]]*$/d')
+
+          # Вывод секции в stdout (лог)
+          echo "$SECTION"
+
+          # Вывод секции как output для следующего шага Actions
           echo "body<<EOF" >> $GITHUB_OUTPUT
-          echo "$TEXT" >> $GITHUB_OUTPUT
+          echo "$SECTION" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
