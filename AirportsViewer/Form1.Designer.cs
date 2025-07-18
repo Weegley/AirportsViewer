@@ -48,16 +48,16 @@ namespace AirportsViewer
             // 
             // textBoxCode
             // 
-            this.textBoxCode.Location = new System.Drawing.Point(53, 11);
+            this.textBoxCode.Location = new System.Drawing.Point(69, 11);
             this.textBoxCode.Name = "textBoxCode";
             this.textBoxCode.Size = new System.Drawing.Size(80, 26);
             this.textBoxCode.TabIndex = 2;
             // 
             // textBoxName
             // 
-            this.textBoxName.Location = new System.Drawing.Point(183, 11);
+            this.textBoxName.Location = new System.Drawing.Point(216, 12);
             this.textBoxName.Name = "textBoxName";
-            this.textBoxName.Size = new System.Drawing.Size(250, 26);
+            this.textBoxName.Size = new System.Drawing.Size(217, 26);
             this.textBoxName.TabIndex = 4;
             // 
             // labelCode
@@ -72,7 +72,7 @@ namespace AirportsViewer
             // labelName
             // 
             this.labelName.AutoSize = true;
-            this.labelName.Location = new System.Drawing.Point(139, 15);
+            this.labelName.Location = new System.Drawing.Point(155, 15);
             this.labelName.Name = "labelName";
             this.labelName.Size = new System.Drawing.Size(55, 20);
             this.labelName.TabIndex = 3;
@@ -80,7 +80,7 @@ namespace AirportsViewer
             // 
             // buttonUpdateCsv
             // 
-            this.buttonUpdateCsv.Location = new System.Drawing.Point(707, 8);
+            this.buttonUpdateCsv.Location = new System.Drawing.Point(707, 12);
             this.buttonUpdateCsv.Name = "buttonUpdateCsv";
             this.buttonUpdateCsv.Size = new System.Drawing.Size(159, 26);
             this.buttonUpdateCsv.TabIndex = 5;
@@ -90,7 +90,7 @@ namespace AirportsViewer
             // 
             // textBoxCountry
             // 
-            this.textBoxCountry.Location = new System.Drawing.Point(518, 11);
+            this.textBoxCountry.Location = new System.Drawing.Point(552, 12);
             this.textBoxCountry.Name = "textBoxCountry";
             this.textBoxCountry.Size = new System.Drawing.Size(100, 26);
             this.textBoxCountry.TabIndex = 6;

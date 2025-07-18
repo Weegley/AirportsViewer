@@ -5,8 +5,10 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
 namespace AirportsViewer
@@ -330,11 +332,65 @@ namespace AirportsViewer
 
         }
 
-        private void Form1_Load(object sender, EventArgs e)
+        private async void Form1_Load(object sender, EventArgs e)
         {
 
             dataGridView1_DataBindingComplete(null, null);
+            await CheckCsvFileVersionAsync();
 
+        }
+        private async Task CheckCsvFileVersionAsync()
+        {
+            buttonUpdateCsv.Enabled = false;
+            buttonUpdateCsv.Text = "Checking Update";
+
+            string csvPath = "airports.csv";
+            DateTime? localDate = null;
+            if (File.Exists(csvPath))
+            {
+                localDate = File.GetLastWriteTime(csvPath);
+            }
+
+            DateTime? remoteDate = await GetRemoteCsvUpdateDateAsync();
+
+            buttonUpdateCsv.Enabled = true;
+            buttonUpdateCsv.Text = "Update Database";
+
+            if (localDate != null && remoteDate != null && localDate < remoteDate.Value.AddMinutes(-1))
+            {
+                MessageBox.Show(
+                    "A new version of airports.csv is available online.\nYou can update it by pressing the 'Update CSV' button.",
+                    "CSV is outdated", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private async Task<DateTime?> GetRemoteCsvUpdateDateAsync()
+        {
+            try
+            {
+                string apiUrl = "https://api.github.com/repos/lxndrblz/Airports/commits?path=airports.csv&page=1&per_page=1";
+                using (HttpClient client = new HttpClient())
+                {
+                    client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("AirportsViewer", "1.0"));
+                    HttpResponseMessage response = await client.GetAsync(apiUrl);
+                    if (!response.IsSuccessStatusCode) return null;
+
+                    string json = await response.Content.ReadAsStringAsync();
+                    if (string.IsNullOrWhiteSpace(json) || json == "[]") return null;
+
+                    var serializer = new JavaScriptSerializer();
+                    dynamic commits = serializer.Deserialize<dynamic>(json);
+
+                    string dateStr = commits[0]["commit"]["committer"]["date"];
+                    DateTime remoteDate = DateTime.Parse(dateStr).ToLocalTime();
+                    return remoteDate;
+                }
+            }
+            catch
+            {
+                // Не выводим ошибку, чтобы не мешать работе приложения
+                return null;
+            }
         }
     }
 }
