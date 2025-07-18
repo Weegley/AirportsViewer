@@ -87,6 +87,10 @@ jobs:
       - name: Get version from build job
         run: echo "Version is ${{ needs.build.outputs.version }}"
       
+      - name: Remove old Changelog section from README.md
+        run: |
+          awk '/^## Changelog/{exit} {print}' README.md > README.tmp && mv README.tmp README.md
+      
       - name: Append CHANGELOG.md to README.md
         run: |
           echo -e "\n## Changelog\n" >> README.md
