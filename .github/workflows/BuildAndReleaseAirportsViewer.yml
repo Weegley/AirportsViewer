@@ -105,7 +105,7 @@ jobs:
           VERSION="v${{ needs.build.outputs.version }}"
           # Ищем секцию для текущей версии, до следующей секции или конца файла
           # Меняем при необходимости на свой стиль!
-          TEXT=$(awk "/^## \\[?$VERSION\\]?/ {flag=1;next} /^## /{flag=0} flag" CHANGELOG.md | sed '/^[[:space:]]*$/d')
+          TEXT=$(awk "/^##( \\[)?$VERSION(\\])?/ {flag=1} /^## / && !/^##( \\[)?$VERSION(\\])?/ {flag=0} flag" CHANGELOG.md | sed '/^[[:space:]]*$/d')
           echo "body<<EOF" >> $GITHUB_OUTPUT
           echo "$TEXT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
