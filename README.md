@@ -18,7 +18,6 @@ It is designed for fast lookup and convenient filtering of airports by code, nam
 - **Update CSV:** Download and update the airport list from the official [Airports GitHub database](https://github.com/lxndrblz/Airports)
 - **Resizable UI:** Table and columns automatically adjust to the window size
 - **Automatic column width adjustment** for main fields
-- **Localization:** Interface messages in Russian
 
 ## Getting Started
 
