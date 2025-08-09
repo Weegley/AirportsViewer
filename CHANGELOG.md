@@ -8,3 +8,4 @@
 ## v1.1.0
 ### Table speedup
 - Updated table handling for table to update and scroll faster.
+- Locked filter textboxes until data is loaded into table to prevent exceptions.
