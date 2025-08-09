@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
@@ -15,208 +15,292 @@ namespace AirportsViewer
 {
     public partial class Form1 : Form
     {
-        private BindingList<Airport> airportsList = new BindingList<Airport>();
-        private BindingSource bindingSource = new BindingSource();
+        // ============================
+        // Data storage for VirtualMode
+        // _all  = all rows loaded from CSV
+        // _view = filtered view shown in the grid
+        // ============================
+        private List<Airport> _all = new List<Airport>();
+        private List<Airport> _view = new List<Airport>();
+
+        // ============================
+        // State/flags
+        // ============================
         private bool isDownloadInProgress = false;
-        private bool needFormResize = true;  
+        private bool needFormResize = true;     // whether to auto-resize form width to fit columns
+        private bool _columnsInited = false;    // columns are created once
+        private bool _autoSizedOnce = false;    // one-shot column autosize (like header double-click)
 
         public Form1()
         {
             InitializeComponent();
 
+            // ---- DataGridView performance settings ----
+            dataGridView1.VirtualMode = true;                   // render on-demand
+            dataGridView1.ReadOnly = true;
             dataGridView1.RowHeadersVisible = false;
-            dataGridView1.DataSource = bindingSource;
+            dataGridView1.AllowUserToResizeRows = false;
+            dataGridView1.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
 
-            LoadCsv();
-            dataGridView1_ColumnWidthChanged(null, null);
+            // Enable DoubleBuffering (reduce flicker / smoother scrolling)
+            typeof(DataGridView)
+                .GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.SetValue(dataGridView1, true, null);
 
+            // ---- Wire up events (VirtualMode + UX) ----
+            dataGridView1.CellValueNeeded += dataGridView1_CellValueNeeded;         // core for VirtualMode
+            dataGridView1.CellContentClick += dataGridView1_CellContentClick;       // open maps/links
+            dataGridView1.CellToolTipTextNeeded += dataGridView1_CellToolTipTextNeeded; // country tooltips
+            dataGridView1.ColumnWidthChanged += dataGridView1_ColumnWidthChanged;   // auto-fit form width
 
             textBoxCode.TextChanged += FilterChanged;
             textBoxName.TextChanged += FilterChanged;
             textBoxCountry.TextChanged += FilterChanged;
+
             buttonUpdateCsv.Click += buttonUpdateCsv_Click;
 
-            dataGridView1.CellContentClick += dataGridView1_CellContentClick;
-            dataGridView1.CellFormatting += dataGridView1_CellFormatting;
-            dataGridView1.CellToolTipTextNeeded += dataGridView1_CellToolTipTextNeeded;
-            dataGridView1.ColumnWidthChanged += dataGridView1_ColumnWidthChanged;
+            // Important: do NOT load CSV in constructor (handle not yet created).
+            // Defer to Form1_Load to avoid "Invoke/BeginInvoke" errors.
+            this.Load += Form1_Load;
         }
 
+        // ---------------------------------------------
+        // Load CSV and build in-memory lists
+        // ---------------------------------------------
         private void LoadCsv()
         {
             if (!File.Exists("airports.csv"))
             {
-                MessageBox.Show("airports.csv not found.\nPlease download using \"Update Database\" button.",
-                                "File not found", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                bindingSource.DataSource = null; // очищаем таблицу
+                MessageBox.Show(
+                    "airports.csv not found.\nPlease download using \"Update Database\" button.",
+                    "File not found",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
+                _all.Clear();
+                _view.Clear();
+                dataGridView1.RowCount = 0;
                 return;
             }
+
             try
             {
                 using (var reader = new StreamReader("airports.csv"))
                 using (var csv = new CsvHelper.CsvReader(reader, CultureInfo.InvariantCulture))
                 {
-                    var records = csv.GetRecords<Airport>().ToList();
-                    airportsList = new BindingList<Airport>(records);
-                    bindingSource.DataSource = airportsList;
-                    SetupDataGridView();
+                    _all = csv.GetRecords<Airport>().ToList();
                 }
+
+                // Create columns once (explicitly) and apply filter to show rows
+                EnsureColumns();
+                ApplyFilter();
             }
             catch (Exception ex)
             {
                 MessageBox.Show("Error loading CSV file: " + ex.Message);
+                _all.Clear();
+                _view.Clear();
+                dataGridView1.RowCount = 0;
             }
         }
 
-        private void SetupDataGridView()
+        // ---------------------------------------------
+        // Create grid columns once (explicit types/order)
+        // We do NOT add: latitude, longitude, elevation, city_code, type
+        // ---------------------------------------------
+        private void EnsureColumns()
         {
-            dataGridView1.AutoGenerateColumns = true;
-            dataGridView1.DataSource = null;
-            dataGridView1.DataSource = bindingSource;
+            if (_columnsInited) return;
 
-            string[] hidden = { "latitude", "longitude", "elevation", "city_code", "type" };
-            foreach (var col in hidden)
-                if (dataGridView1.Columns.Contains(col))
-                    dataGridView1.Columns[col].Visible = false;
+            dataGridView1.Columns.Clear();
 
-            if (dataGridView1.Columns.Contains("name"))
+            dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { Name = "code", HeaderText = "code", SortMode = DataGridViewColumnSortMode.NotSortable });
+            dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { Name = "icao", HeaderText = "icao", SortMode = DataGridViewColumnSortMode.NotSortable });
+
+            var nameCol = new DataGridViewLinkColumn
             {
-                var idx = dataGridView1.Columns["name"].Index;
-                var link = new DataGridViewLinkColumn
-                {
-                    Name = "name",
-                    HeaderText = "name",
-                    DataPropertyName = "name",
-                    LinkBehavior = LinkBehavior.SystemDefault,
-                    UseColumnTextForLinkValue = false,
-                    TrackVisitedState = false
-                };
-                dataGridView1.Columns.RemoveAt(idx);
-                dataGridView1.Columns.Insert(idx, link);
-            }
-            if (dataGridView1.Columns.Contains("url"))
+                Name = "name",
+                HeaderText = "name",
+                TrackVisitedState = false,
+                SortMode = DataGridViewColumnSortMode.NotSortable
+            };
+            dataGridView1.Columns.Add(nameCol);
+
+            dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { Name = "time_zone", HeaderText = "time_zone", SortMode = DataGridViewColumnSortMode.NotSortable });
+            dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { Name = "country", HeaderText = "country", SortMode = DataGridViewColumnSortMode.NotSortable });
+            dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { Name = "city", HeaderText = "city", SortMode = DataGridViewColumnSortMode.NotSortable });
+            dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { Name = "state", HeaderText = "state", SortMode = DataGridViewColumnSortMode.NotSortable });
+            dataGridView1.Columns.Add(new DataGridViewTextBoxColumn { Name = "county", HeaderText = "county", SortMode = DataGridViewColumnSortMode.NotSortable });
+
+            var urlCol = new DataGridViewLinkColumn
             {
-                var idx = dataGridView1.Columns["url"].Index;
-                var link = new DataGridViewLinkColumn
-                {
-                    Name = "url",
-                    HeaderText = "url",
-                    DataPropertyName = "url",
-                    LinkBehavior = LinkBehavior.SystemDefault,
-                    UseColumnTextForLinkValue = false,
-                    TrackVisitedState = false
-                };
-                dataGridView1.Columns.RemoveAt(idx);
-                dataGridView1.Columns.Insert(idx, link);
-            }
+                Name = "url",
+                HeaderText = "url",
+                TrackVisitedState = false,
+                SortMode = DataGridViewColumnSortMode.NotSortable
+            };
+            dataGridView1.Columns.Add(urlCol);
 
-
+            _columnsInited = true;
         }
 
-        private void FilterChanged(object sender, EventArgs e)
-        {
-            string codeFilter = textBoxCode.Text.ToLower();
-            string nameFilter = textBoxName.Text.ToLower();
-            string countryFilter = textBoxCountry.Text.ToLower();
+        // ---------------------------------------------
+        // Filtering logic
+        // - code matches code
+        // - name filter also matches city/state/country (as requested)
+        // - country filter matches ISO code
+        // ---------------------------------------------
+        private void FilterChanged(object sender, EventArgs e) => ApplyFilter();
 
-            var filtered = airportsList.Where(a =>
-                (string.IsNullOrEmpty(codeFilter) || (a.code != null && a.code.ToLower().Contains(codeFilter)))
-                &&
+        private void ApplyFilter()
+        {
+            string codeFilter = (textBoxCode.Text ?? "").Trim().ToLowerInvariant();
+            string nameFilter = (textBoxName.Text ?? "").Trim().ToLowerInvariant();
+            string countryFilter = (textBoxCountry.Text ?? "").Trim().ToLowerInvariant();
+
+            _view = _all.Where(a =>
+                (string.IsNullOrEmpty(codeFilter) || (!string.IsNullOrEmpty(a.code) && a.code.ToLowerInvariant().Contains(codeFilter))) &&
                 (string.IsNullOrEmpty(nameFilter) ||
-                    (a.name != null && a.name.ToLower().Contains(nameFilter)) ||
-                    (a.city != null && a.city.ToLower().Contains(nameFilter)) ||
-                    (a.state != null && a.state.ToLower().Contains(nameFilter)) ||
-                    (a.country != null && a.country.ToLower().Contains(nameFilter))
-                )
-                &&
-                (string.IsNullOrEmpty(countryFilter) || (a.country != null && a.country.ToLower().Contains(countryFilter)))
+                    (!string.IsNullOrEmpty(a.name) && a.name.ToLowerInvariant().Contains(nameFilter)) ||
+                    (!string.IsNullOrEmpty(a.city) && a.city.ToLowerInvariant().Contains(nameFilter)) ||
+                    (!string.IsNullOrEmpty(a.state) && a.state.ToLowerInvariant().Contains(nameFilter)) ||
+                    (!string.IsNullOrEmpty(a.country) && a.country.ToLowerInvariant().Contains(nameFilter))
+                ) &&
+                (string.IsNullOrEmpty(countryFilter) || (!string.IsNullOrEmpty(a.country) && a.country.ToLowerInvariant().Contains(countryFilter)))
             ).ToList();
 
-            bindingSource.DataSource = new BindingList<Airport>(filtered);
+            // VirtualMode: tell the grid how many rows we have now
+            dataGridView1.RowCount = _view.Count;
+
+            // One-shot manual autosize (like double-click on headers) when we first have data
+            if (!_autoSizedOnce && _view.Count > 0)
+            {
+                _autoSizedOnce = true;
+
+                Action doAuto = () =>
+                {
+                    AutoResizeOnce(new[] { "code", "icao", "name", "country" });
+                    dataGridView1_ColumnWidthChanged(null, null); // also resize the form width
+                };
+
+                // Safety: BeginInvoke only if handle exists, otherwise wait for creation
+                if (IsHandleCreated) BeginInvoke(doAuto);
+                else this.HandleCreated += (s, ev) => BeginInvoke(doAuto);
+            }
+
+            dataGridView1.Invalidate(); // redraw visible cells
         }
 
+        // Manual one-time autosizing for specific columns
+        private void AutoResizeOnce(string[] cols)
+        {
+            foreach (var name in cols)
+            {
+                if (dataGridView1.Columns.Contains(name))
+                    dataGridView1.AutoResizeColumn(dataGridView1.Columns[name].Index, DataGridViewAutoSizeColumnMode.AllCells);
+            }
+        }
 
+        // ---------------------------------------------
+        // VirtualMode: provide cell values on demand
+        // ---------------------------------------------
+        private void dataGridView1_CellValueNeeded(object sender, DataGridViewCellValueEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.RowIndex >= _view.Count) return;
+            var a = _view[e.RowIndex];
+            var col = dataGridView1.Columns[e.ColumnIndex].Name;
+
+            switch (col)
+            {
+                case "code": e.Value = a.code; break;
+                case "icao": e.Value = a.icao; break;
+                case "name": e.Value = a.name; break; // link column
+                case "time_zone": e.Value = a.time_zone; break;
+                case "country": e.Value = a.country; break;
+                case "city": e.Value = a.city; break;
+                case "state": e.Value = a.state; break;
+                case "county": e.Value = a.county; break;
+                case "url": e.Value = string.IsNullOrWhiteSpace(a.url) ? "" : a.url; break; // empty -> looks inactive
+            }
+        }
+
+        // ---------------------------------------------
+        // Link clicks:
+        // - name -> Google Maps (uses your current URL pattern)
+        // - url  -> open website if not empty
+        // ---------------------------------------------
         private void dataGridView1_CellContentClick(object sender, DataGridViewCellEventArgs e)
         {
-            if (e.RowIndex < 0) return;
-            var grid = (DataGridView)sender;
-            var column = grid.Columns[e.ColumnIndex];
-            var airport = (Airport)grid.Rows[e.RowIndex].DataBoundItem;
+            if (e.RowIndex < 0 || e.RowIndex >= _view.Count) return;
 
-            if (column.Name == "name" && airport != null)
+            var column = dataGridView1.Columns[e.ColumnIndex].Name;
+            var airport = _view[e.RowIndex];
+
+            if (column == "name" && airport != null)
             {
                 if (airport.latitude != 0 && airport.longitude != 0)
                 {
                     string lat = airport.latitude.ToString(CultureInfo.InvariantCulture);
                     string lon = airport.longitude.ToString(CultureInfo.InvariantCulture);
+
+                    // Keeping your existing link format:
+                    // query by name + center by ll + zoom
                     string url = $"https://www.google.com/maps/?q={airport.name} airport&ll={lat},{lon}&z=13";
                     System.Diagnostics.Process.Start(url);
                 }
             }
-            else if (column.Name == "url" && airport != null && !string.IsNullOrWhiteSpace(airport.url))
+            else if (column == "url" && airport != null && !string.IsNullOrWhiteSpace(airport.url))
             {
                 System.Diagnostics.Process.Start(airport.url);
             }
         }
 
-        private void dataGridView1_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
-        {
-            var columnName = dataGridView1.Columns[e.ColumnIndex].Name;
-            if (columnName == "url")
-            {
-                var airport = dataGridView1.Rows[e.RowIndex].DataBoundItem as Airport;
-                if (airport == null || string.IsNullOrWhiteSpace(airport.url))
-                {
-                    e.Value = "";
-                    dataGridView1.Rows[e.RowIndex].Cells[e.ColumnIndex].ReadOnly = true;
-                    if (dataGridView1.Rows[e.RowIndex].Cells[e.ColumnIndex] is DataGridViewLinkCell linkCell)
-                    {
-                        linkCell.LinkColor = System.Drawing.Color.Black;
-                    }
-                }
-            }
-        }
-
+        // ---------------------------------------------
+        // Country tooltip (ISO code -> full country name)
+        // ---------------------------------------------
         private void dataGridView1_CellToolTipTextNeeded(object sender, DataGridViewCellToolTipTextNeededEventArgs e)
         {
-            if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
-            var grid = (DataGridView)sender;
-            var col = grid.Columns[e.ColumnIndex];
-            if (col.Name == "country")
-            {
-                var airport = grid.Rows[e.RowIndex].DataBoundItem as Airport;
-                if (airport != null && !string.IsNullOrWhiteSpace(airport.country))
-                {
-                    string code = airport.country.Trim().ToUpper();
-                    if (CountryCodes.All.TryGetValue(code, out var name))
-                        e.ToolTipText = $"{code} — {name}";
-                    else
-                        e.ToolTipText = code;
-                }
-            }
+            if (e.RowIndex < 0 || e.RowIndex >= _view.Count || e.ColumnIndex < 0) return;
+            var col = dataGridView1.Columns[e.ColumnIndex];
+            if (col.Name != "country") return;
+
+            var code = _view[e.RowIndex].country?.Trim().ToUpperInvariant();
+            if (string.IsNullOrEmpty(code)) return;
+
+            if (CountryCodes.All.TryGetValue(code, out var full))
+                e.ToolTipText = $"{code} — {full}";
+            else
+                e.ToolTipText = code;
         }
 
+        // ---------------------------------------------
+        // Resize form width to fit visible columns (no horizontal scrollbar)
+        // Called on ColumnWidthChanged and once after initial autosize
+        // ---------------------------------------------
         private void dataGridView1_ColumnWidthChanged(object sender, DataGridViewColumnEventArgs e)
         {
-            if (needFormResize)
-            {
-                int columnsWidth = 0;
-                foreach (DataGridViewColumn col in dataGridView1.Columns)
-                {
-                    if (col.Visible)
-                        columnsWidth += col.Width;
-                }
-                int vScrollBarWidth = (dataGridView1.DisplayedRowCount(false) < dataGridView1.RowCount) ? SystemInformation.VerticalScrollBarWidth : 0;
-                int padding = dataGridView1.Location.X * 2 + 20;
-                int targetWidth = columnsWidth + vScrollBarWidth + padding;
-                int minWidth = 900;
-                this.Width = Math.Max(targetWidth, minWidth);
-            }
+            if (!needFormResize) return;
+
+            int columnsWidth = 0;
+            foreach (DataGridViewColumn col in dataGridView1.Columns)
+                if (col.Visible)
+                    columnsWidth += col.Width;
+
+            int vScrollBarWidth = (dataGridView1.DisplayedRowCount(false) < dataGridView1.RowCount)
+                ? SystemInformation.VerticalScrollBarWidth : 0;
+
+            int padding = dataGridView1.Location.X * 2 + 20;
+            int targetWidth = columnsWidth + vScrollBarWidth + padding;
+            int minWidth = 900;
+            this.Width = Math.Max(targetWidth, minWidth);
         }
 
+        // ---------------------------------------------
+        // Update CSV button (download with a progress popup)
+        // ---------------------------------------------
         private async void buttonUpdateCsv_Click(object sender, EventArgs e)
         {
-            if (isDownloadInProgress) return; // Уже идёт загрузка — просто игнорируем повторный клик!
+            if (isDownloadInProgress) return;  // ignore double-clicks
             isDownloadInProgress = true;
 
             string url = "https://raw.githubusercontent.com/lxndrblz/Airports/refs/heads/main/airports.csv";
@@ -231,7 +315,6 @@ namespace AirportsViewer
                 progressForm.ButtonCancel.Click += (s, ev) => cts.Cancel();
 
                 var downloadTask = DownloadFileWithProgressAsync(url, fileName, progressForm, cts.Token);
-
                 progressForm.Show();
 
                 try
@@ -242,12 +325,12 @@ namespace AirportsViewer
                         progressForm.LabelStatus.Text = "Database updated successfully!";
                         await Task.Delay(300);
 
+                        // Reload CSV and rebuild view
                         needFormResize = false;
                         LoadCsv();
-                        dataGridView1_DataBindingComplete(this,null);
+                        AutoResizeOnce(new[] { "code", "icao", "name", "country" });
                         needFormResize = true;
-                        dataGridView1_ColumnWidthChanged(this,null);
-
+                        dataGridView1_ColumnWidthChanged(this, null);
                     }
                 }
                 catch (OperationCanceledException)
@@ -271,7 +354,9 @@ namespace AirportsViewer
             }
         }
 
-
+        // ---------------------------------------------
+        // Streaming download with progress bar updates
+        // ---------------------------------------------
         private async Task DownloadFileWithProgressAsync(string url, string fileName, ProgressForm progressForm, CancellationToken token)
         {
             using (HttpClient client = new HttpClient())
@@ -286,6 +371,7 @@ namespace AirportsViewer
                     byte[] buffer = new byte[8192];
                     long totalRead = 0;
                     int read;
+
                     progressForm.ProgressBar.Minimum = 0;
                     progressForm.ProgressBar.Value = 0;
                     progressForm.ProgressBar.Maximum = contentLength.HasValue ? (int)(contentLength.Value / 1024) : 100;
@@ -308,37 +394,36 @@ namespace AirportsViewer
                         {
                             progressForm.LabelStatus.Text = $"Downloaded {totalRead / 1024} KB";
                         }
-                        Application.DoEvents();
+                        Application.DoEvents(); // keep UI responsive in the progress form
                     }
                 }
             }
         }
 
+        // ---------------------------------------------
+        // Keep the update button aligned when resizing the form
+        // ---------------------------------------------
         private void Form1_Resize(object sender, EventArgs e)
         {
             buttonUpdateCsv.Left = this.Width - 34 - buttonUpdateCsv.Width;
         }
-        private void dataGridView1_DataBindingComplete(object sender, DataGridViewBindingCompleteEventArgs e)
-        {
 
-            string[] autoColumns = { "code", "icao", "name", "country" };
-            foreach (string col in autoColumns)
-            {
-                if (dataGridView1.Columns.Contains(col))
-                {
-                    dataGridView1.AutoResizeColumn(dataGridView1.Columns[col].Index, DataGridViewAutoSizeColumnMode.AllCells);
-                }
-            }
-
-        }
-
+        // ---------------------------------------------
+        // Form Load: safe place to load CSV and do one-shot autosize,
+        // then run async remote update check in background.
+        // ---------------------------------------------
         private async void Form1_Load(object sender, EventArgs e)
         {
-
-            dataGridView1_DataBindingComplete(null, null);
+            LoadCsv();
+            AutoResizeOnce(new[] { "code", "icao", "name", "country" });
+            dataGridView1_ColumnWidthChanged(null, null);
             await CheckCsvFileVersionAsync();
-
         }
+
+        // ---------------------------------------------
+        // Background check: compare local CSV last write time vs latest GitHub commit
+        // Disable the update button while checking to avoid confusion.
+        // ---------------------------------------------
         private async Task CheckCsvFileVersionAsync()
         {
             buttonUpdateCsv.Enabled = false;
@@ -347,9 +432,7 @@ namespace AirportsViewer
             string csvPath = "airports.csv";
             DateTime? localDate = null;
             if (File.Exists(csvPath))
-            {
                 localDate = File.GetLastWriteTime(csvPath);
-            }
 
             DateTime? remoteDate = await GetRemoteCsvUpdateDateAsync();
 
@@ -360,10 +443,17 @@ namespace AirportsViewer
             {
                 MessageBox.Show(
                     "A new version of airports.csv is available online.\nYou can update it by pressing the 'Update CSV' button.",
-                    "CSV is outdated", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    "CSV is outdated",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
             }
         }
 
+        // ---------------------------------------------
+        // Query GitHub API for the latest commit date that touched airports.csv
+        // Returns local time (or null on failure).
+        // ---------------------------------------------
         private async Task<DateTime?> GetRemoteCsvUpdateDateAsync()
         {
             try
@@ -388,7 +478,7 @@ namespace AirportsViewer
             }
             catch
             {
-                // Не выводим ошибку, чтобы не мешать работе приложения
+                // Silently ignore errors to not disturb the user on startup
                 return null;
             }
         }
