@@ -67,8 +67,7 @@ namespace AirportsViewer
         // ---------------------------------------------
         private void LoadCsv()
         {
-            try
-            {
+
                 if (!File.Exists("airports.csv"))
                 {
                     MessageBox.Show(
@@ -83,10 +82,7 @@ namespace AirportsViewer
                     //if (dataGridView1.RowCount > 0) { dataGridView1.RowCount = 0; };
                     return;
                 }
-            }
-            catch {
-                
-                    }
+
 
             try
             {
@@ -99,6 +95,9 @@ namespace AirportsViewer
                 // Create columns once (explicitly) and apply filter to show rows
                 EnsureColumns();
                 ApplyFilter();
+                textBoxCode.Enabled = true;
+                textBoxCountry.Enabled = true;
+                textBoxName.Enabled = true; 
             }
             catch (Exception ex)
             {

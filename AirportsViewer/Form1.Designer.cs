@@ -48,6 +48,7 @@ namespace AirportsViewer
             // 
             // textBoxCode
             // 
+            this.textBoxCode.Enabled = false;
             this.textBoxCode.Location = new System.Drawing.Point(69, 11);
             this.textBoxCode.Name = "textBoxCode";
             this.textBoxCode.Size = new System.Drawing.Size(80, 26);
@@ -55,6 +56,7 @@ namespace AirportsViewer
             // 
             // textBoxName
             // 
+            this.textBoxName.Enabled = false;
             this.textBoxName.Location = new System.Drawing.Point(216, 12);
             this.textBoxName.Name = "textBoxName";
             this.textBoxName.Size = new System.Drawing.Size(217, 26);
@@ -90,6 +92,7 @@ namespace AirportsViewer
             // 
             // textBoxCountry
             // 
+            this.textBoxCountry.Enabled = false;
             this.textBoxCountry.Location = new System.Drawing.Point(552, 12);
             this.textBoxCountry.Name = "textBoxCountry";
             this.textBoxCountry.Size = new System.Drawing.Size(100, 26);
