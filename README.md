@@ -64,6 +64,7 @@ This project is distributed under the MIT License.
 Airport database: [lxndrblz/Airports](https://github.com/lxndrblz/Airports)
 
 
+
 ## Changelog
 
 ## v1.0.0
@@ -72,3 +73,7 @@ Airport database: [lxndrblz/Airports](https://github.com/lxndrblz/Airports)
 ## v1.0.1
 ### Online Database check
 - Added online database update check on startup
+
+## v1.1.0
+### Table speedup
+- Updated table handling for table to update and scroll faster.
