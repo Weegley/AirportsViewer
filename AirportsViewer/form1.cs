@@ -59,9 +59,7 @@ namespace AirportsViewer
 
             buttonUpdateCsv.Click += buttonUpdateCsv_Click;
 
-            // Important: do NOT load CSV in constructor (handle not yet created).
-            // Defer to Form1_Load to avoid "Invoke/BeginInvoke" errors.
-            this.Load += Form1_Load;
+  
         }
 
         // ---------------------------------------------
@@ -69,19 +67,26 @@ namespace AirportsViewer
         // ---------------------------------------------
         private void LoadCsv()
         {
-            if (!File.Exists("airports.csv"))
+            try
             {
-                MessageBox.Show(
-                    "airports.csv not found.\nPlease download using \"Update Database\" button.",
-                    "File not found",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error
-                );
-                _all.Clear();
-                _view.Clear();
-                dataGridView1.RowCount = 0;
-                return;
+                if (!File.Exists("airports.csv"))
+                {
+                    MessageBox.Show(
+                        "airports.csv not found.\nPlease download using \"Update Database\" button.",
+                        "File not found",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error
+                    );
+                    _all.Clear();
+                    _view.Clear();
+
+                    //if (dataGridView1.RowCount > 0) { dataGridView1.RowCount = 0; };
+                    return;
+                }
             }
+            catch {
+                
+                    }
 
             try
             {
